@@ -1,0 +1,24 @@
+# Archivos de Visual Studio
+.vs/
+*.user
+*.suo
+
+# Compilaciones de .NET
+[Bb]in/
+[Oo]bj/
+
+# Archivos de Visual Studio Code
+.vscode/
+
+# Configuraciones locales y secretos
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+
+# Archivos de sistema
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
