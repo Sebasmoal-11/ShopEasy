@@ -1,3 +1,4 @@
+using Microsoft.Extensions.FileProviders;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -131,6 +132,31 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<DashboardService>();
 
 var app = builder.Build();
+
+// Ruta física del FrontEnd
+var frontendPath = Path.GetFullPath(
+    Path.Combine(
+        app.Environment.ContentRootPath,
+        "..",
+        "..",
+        "FrontEnd"
+    )
+);
+
+// Configurar archivos estáticos del FrontEnd
+var frontendProvider = new PhysicalFileProvider(frontendPath);
+
+// Permitir que index.html sea la página inicial
+app.UseDefaultFiles(new DefaultFilesOptions
+{
+    FileProvider = frontendProvider
+});
+
+// Servir HTML, CSS y JavaScript
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = frontendProvider
+});
 
 app.UseMiddleware<ExceptionMiddleware>();
 
