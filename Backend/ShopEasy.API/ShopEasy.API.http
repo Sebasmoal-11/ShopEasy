@@ -1,0 +1,94 @@
+@host = http://localhost:5080
+
+### Login de administrador
+# Reemplaza el correo y la contrasena por los del usuario administrador
+# registrado directamente en MySQL.
+# @name loginAdmin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "correo": "admin@example.com",
+  "contrasena": "Cambia_Esta_Clave_2026!"
+}
+
+### Login de empleado
+# @name loginEmpleado
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "correo": "empleado@example.com",
+  "contrasena": "Cambia_Esta_Clave_2026!"
+}
+
+### Dashboard con el token del administrador
+GET {{host}}/api/dashboard
+Authorization: Bearer {{loginAdmin.response.body.$.token}}
+Accept: application/json
+
+### Dashboard con el token del empleado
+GET {{host}}/api/dashboard
+Authorization: Bearer {{loginEmpleado.response.body.$.token}}
+Accept: application/json
+
+### Dashboard sin token (401)
+GET {{host}}/api/dashboard
+Accept: application/json
+
+### Roles disponibles (solo administrador)
+GET {{host}}/api/users/roles
+Authorization: Bearer {{loginAdmin.response.body.$.token}}
+Accept: application/json
+
+### Crear usuario empleado (solo administrador, 201)
+# La contrasena debe tener 10-72 caracteres, mayuscula, minuscula, numero y simbolo.
+POST {{host}}/api/users
+Authorization: Bearer {{loginAdmin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "cedula": "303330333",
+  "nombre": "Laura",
+  "apellidos": "Jimenez Solano",
+  "correo": "laura.jimenez@example.com",
+  "contrasena": "Empleado_ShopEasy_2026!",
+  "idRol": 2
+}
+
+### Crear usuario con un empleado (403)
+POST {{host}}/api/users
+Authorization: Bearer {{loginEmpleado.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "cedula": "404440444",
+  "nombre": "Pedro",
+  "apellidos": "Rojas Vega",
+  "correo": "pedro.rojas@example.com",
+  "contrasena": "Empleado_ShopEasy_2026!",
+  "idRol": 2
+}
+
+### Datos invalidos (400)
+POST {{host}}/api/users
+Authorization: Bearer {{loginAdmin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "cedula": "",
+  "nombre": "A",
+  "apellidos": "",
+  "correo": "no-es-un-correo",
+  "contrasena": "corta",
+  "idRol": 0
+}
+
+### No existe registro publico (404)
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "correo": "nadie@example.com",
+  "contrasena": "No_Existe_2026!"
+}
