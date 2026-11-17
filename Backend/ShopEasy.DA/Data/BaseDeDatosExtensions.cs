@@ -17,6 +17,12 @@ public static class BaseDeDatosExtensions
         services.AddScoped<AuthDA>();
         services.AddScoped<UserDA>();
         services.AddScoped<DashboardDA>();
+        services.AddScoped<VentasDA>();
+        services.AddScoped<PedidosDA>();
+        services.AddScoped<ProductosDA>();
+        services.AddScoped<ClientesDA>();
+        services.AddScoped<AtencionClienteDA>();
+        services.AddScoped<CampanasDA>();
 
         return services;
     }

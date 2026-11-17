@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ShopEasy.API.Errors;
 using ShopEasy.API.Middleware;
 using ShopEasy.BC.Services;
 using ShopEasy.BC.Settings;
@@ -130,10 +131,16 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<VentasService>();
+builder.Services.AddScoped<PedidosService>();
+builder.Services.AddScoped<ProductosService>();
+builder.Services.AddScoped<ClientesService>();
+builder.Services.AddScoped<AtencionClienteService>();
+builder.Services.AddScoped<CampanasService>();
 
 var app = builder.Build();
 
-// Ruta física del FrontEnd
+// Ruta fÃ­sica del FrontEnd
 var frontendPath = Path.GetFullPath(
     Path.Combine(
         app.Environment.ContentRootPath,
@@ -143,10 +150,10 @@ var frontendPath = Path.GetFullPath(
     )
 );
 
-// Configurar archivos estáticos del FrontEnd
+// Configurar archivos estÃ¡ticos del FrontEnd
 var frontendProvider = new PhysicalFileProvider(frontendPath);
 
-// Permitir que index.html sea la página inicial
+// Permitir que index.html sea la pÃ¡gina inicial
 app.UseDefaultFiles(new DefaultFilesOptions
 {
     FileProvider = frontendProvider
@@ -167,6 +174,21 @@ app.UseStatusCodePages(async context =>
     if (response.HasStarted || response.ContentLength > 0)
     {
         return;
+    }
+
+    if (ErrorPages.DebeMostrarPagina(context.HttpContext))
+    {
+        var archivo = ErrorPages.ArchivoPara(response.StatusCode);
+        var ruta = archivo is null
+            ? null
+            : Path.Combine(ErrorPages.Carpeta(app.Environment.ContentRootPath), archivo);
+
+        if (ruta is not null && File.Exists(ruta))
+        {
+            response.ContentType = "text/html; charset=utf-8";
+            await response.SendFileAsync(ruta);
+            return;
+        }
     }
 
     var mensaje = response.StatusCode switch

@@ -11,4 +11,7 @@ public record DashboardStatsDto(
     int TotalClientes,
     int TotalPedidos,
     int TotalCasosCliente,
-    int TotalCampanas);
+    int TotalCampanas,
+    decimal TotalVentas,
+    int TotalCasosPendientes,
+    int TotalProductos);

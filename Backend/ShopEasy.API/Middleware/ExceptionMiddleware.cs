@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ShopEasy.API.Errors;
 using ShopEasy.BC.Common;
 
 namespace ShopEasy.API.Middleware;
@@ -7,11 +8,16 @@ public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
+    private readonly IWebHostEnvironment _environment;
 
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
+    public ExceptionMiddleware(
+        RequestDelegate next,
+        ILogger<ExceptionMiddleware> logger,
+        IWebHostEnvironment environment)
     {
         _next = next;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -51,9 +57,25 @@ public class ExceptionMiddleware
         }
     }
 
-    private static async Task EscribirErrorAsync(HttpContext context, int statusCode, string mensaje)
+    private async Task EscribirErrorAsync(HttpContext context, int statusCode, string mensaje)
     {
         context.Response.StatusCode = statusCode;
+
+        if (ErrorPages.DebeMostrarPagina(context))
+        {
+            var archivo = ErrorPages.ArchivoPara(statusCode);
+            var ruta = archivo is null
+                ? null
+                : Path.Combine(ErrorPages.Carpeta(_environment.ContentRootPath), archivo);
+
+            if (ruta is not null && File.Exists(ruta))
+            {
+                context.Response.ContentType = "text/html; charset=utf-8";
+                await context.Response.SendFileAsync(ruta);
+                return;
+            }
+        }
+
         await context.Response.WriteAsJsonAsync(new
         {
             status = statusCode,

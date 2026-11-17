@@ -8,10 +8,12 @@ namespace ShopEasy.BC.Services;
 public class DashboardService
 {
     private readonly DashboardDA _dashboardDA;
+    private readonly AtencionClienteDA _atencionClienteDA;
 
-    public DashboardService(DashboardDA dashboardDA)
+    public DashboardService(DashboardDA dashboardDA, AtencionClienteDA atencionClienteDA)
     {
         _dashboardDA = dashboardDA;
+        _atencionClienteDA = atencionClienteDA;
     }
 
     public async Task<DashboardResponse> ObtenerDashboardAsync(int idUsuario)
@@ -30,10 +32,17 @@ public class DashboardService
             .Select(c => c.Correo)
             .FirstOrDefault() ?? string.Empty;
 
-        var totalClientes = await _dashboardDA.ContarClientesAsync();
+        var totalClientes = await _dashboardDA.ContarClientesActivosAsync();
         var totalPedidos = await _dashboardDA.ContarPedidosAsync();
+        var totalVentas = await _dashboardDA.SumarVentasAsync();
         var totalCasos = await _dashboardDA.ContarCasosAsync();
+        var totalProductos = await _dashboardDA.ContarProductosActivosAsync();
         var totalCampanas = await _dashboardDA.ContarCampanasAsync();
+
+        var casosPorEstado = await _atencionClienteDA.ObtenerConteosPorEstadoAsync();
+        var totalCasosPendientes = casosPorEstado
+            .Where(caso => ClasificadorEstados.EsCasoPendiente(caso.Estado))
+            .Sum(caso => caso.Cantidad);
 
         return new DashboardResponse(
             DateTime.UtcNow,
@@ -47,6 +56,9 @@ public class DashboardService
                 totalClientes,
                 totalPedidos,
                 totalCasos,
-                totalCampanas));
+                totalCampanas,
+                totalVentas,
+                totalCasosPendientes,
+                totalProductos));
     }
 }

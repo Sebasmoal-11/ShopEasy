@@ -22,14 +22,25 @@ public class DashboardDA
             .FirstOrDefaultAsync(usuario => usuario.IdUsuario == idUsuario);
     }
 
-    public Task<int> ContarClientesAsync()
+    public Task<int> ContarClientesActivosAsync()
     {
-        return _context.Clientes.CountAsync();
+        return _context.Clientes
+            .AsNoTracking()
+            .CountAsync(cliente => cliente.Activo);
     }
 
     public Task<int> ContarPedidosAsync()
     {
         return _context.Pedidos.CountAsync();
+    }
+
+    public async Task<decimal> SumarVentasAsync()
+    {
+        var total = await _context.Pedidos
+            .AsNoTracking()
+            .SumAsync(pedido => (decimal?)pedido.Total);
+
+        return total ?? 0m;
     }
 
     public Task<int> ContarCasosAsync()
@@ -40,5 +51,12 @@ public class DashboardDA
     public Task<int> ContarCampanasAsync()
     {
         return _context.Campanas.CountAsync();
+    }
+
+    public Task<int> ContarProductosActivosAsync()
+    {
+        return _context.Productos
+            .AsNoTracking()
+            .CountAsync(producto => producto.Activo);
     }
 }

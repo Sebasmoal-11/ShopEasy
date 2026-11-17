@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
 using ShopEasy.BC.Common;
 using ShopEasy.BC.Security;
+using ShopEasy.BW.Common;
 using ShopEasy.BW.Users;
 using ShopEasy.DA.Data;
 using ShopEasy.DA.Entities;
@@ -93,6 +93,173 @@ public class UserService
             usuario.FechaCreacion);
     }
 
+    public async Task<PagedResponse<UserResponse>> ObtenerUsuariosAsync(
+        string? buscar,
+        bool? activo,
+        int? idRol,
+        int pagina,
+        int tamano)
+    {
+        (pagina, tamano) = Validador.Paginacion(pagina, tamano);
+
+        var resultado = await _userDA.ObtenerListadoAsync(
+            buscar,
+            activo,
+            idRol,
+            pagina,
+            tamano);
+
+        return new PagedResponse<UserResponse>(
+            resultado.Total,
+            pagina,
+            tamano,
+            resultado.Items.Select(usuario => Mapear(usuario)).ToList());
+    }
+
+    public async Task<UserResponse> ObtenerUsuarioAsync(int idUsuario)
+    {
+        var usuario = await _userDA.ObtenerDetalleAsync(idUsuario);
+
+        if (usuario is null)
+        {
+            throw new ApiException(404, "El usuario no existe.");
+        }
+
+        return Mapear(usuario);
+    }
+
+    public async Task<UserResponse> ActualizarUsuarioAsync(
+        int idUsuario,
+        UpdateUserRequest request,
+        int idUsuarioActual)
+    {
+        if (request is null)
+        {
+            throw new ApiException(400, "Los datos del usuario son obligatorios.");
+        }
+
+        var usuario = await _userDA.ObtenerParaEdicionAsync(idUsuario);
+
+        if (usuario is null)
+        {
+            throw new ApiException(404, "El usuario no existe.");
+        }
+
+        var nombre = Validador.Texto(request.Nombre, "El nombre", 100, 2);
+        var apellidos = Validador.Texto(request.Apellidos, "Los apellidos", 100, 2);
+        var correo = Validador.Correo(request.Correo);
+
+        if (request.IdRol <= 0)
+        {
+            throw new ApiException(400, "Debe seleccionar un rol.");
+        }
+
+        var rol = await _userDA.ObtenerRolAsync(request.IdRol);
+
+        if (rol is null)
+        {
+            throw new ApiException(400, "El rol seleccionado no existe.");
+        }
+
+        if (await _userDA.ExisteCorreoEnOtraPersonaAsync(correo, usuario.Cedula))
+        {
+            throw new ApiException(409, "El correo electronico ya esta registrado por otra persona.");
+        }
+
+        var eraAdministrador = usuario.Rol.Nombre == "Administrador";
+        var seguiraSiendoAdministrador = rol.Nombre == "Administrador";
+
+        if (usuario.Activo &&
+            eraAdministrador &&
+            !seguiraSiendoAdministrador &&
+            await _userDA.ContarAdministradoresActivosExcluyendoAsync(idUsuario) == 0)
+        {
+            throw new ApiException(400, "No se puede quitar el rol al ultimo administrador activo.");
+        }
+
+        usuario.Persona.Nombre = nombre;
+        usuario.Persona.Apellidos = apellidos;
+        usuario.IdRol = rol.IdRol;
+
+        var correoActual = usuario.Persona.CorreosPersona
+            .Where(c => c.Activo)
+            .OrderByDescending(c => c.Principal)
+            .ThenBy(c => c.IdCorreo)
+            .FirstOrDefault();
+
+        if (correoActual is null)
+        {
+            usuario.Persona.CorreosPersona.Add(new CorreoPersona
+            {
+                Cedula = usuario.Cedula,
+                Correo = correo,
+                TipoCorreo = "Personal",
+                Principal = true,
+                Activo = true
+            });
+        }
+        else
+        {
+            if (usuario.Persona.CorreosPersona.Any(c =>
+                    c.IdCorreo != correoActual.IdCorreo &&
+                    c.Correo.Equals(correo, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ApiException(409, "Ese correo ya esta asociado al usuario.");
+            }
+
+            correoActual.Correo = correo;
+            correoActual.Principal = true;
+            correoActual.Activo = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Contrasena))
+        {
+            var errores = PasswordHelper.Validate(request.Contrasena);
+
+            if (errores.Count > 0)
+            {
+                throw new ApiException(400, string.Join(" ", errores));
+            }
+
+            usuario.ContrasenaHash = PasswordHelper.Hash(request.Contrasena);
+        }
+
+        await _userDA.ActualizarAsync(usuario);
+
+        return await ObtenerUsuarioAsync(idUsuario);
+    }
+
+    public async Task<UserResponse> CambiarEstadoAsync(
+        int idUsuario,
+        bool activo,
+        int idUsuarioActual)
+    {
+        var usuario = await _userDA.ObtenerParaEdicionAsync(idUsuario);
+
+        if (usuario is null)
+        {
+            throw new ApiException(404, "El usuario no existe.");
+        }
+
+        if (!activo && idUsuario == idUsuarioActual)
+        {
+            throw new ApiException(400, "No puedes desactivar tu propio usuario.");
+        }
+
+        if (!activo &&
+            usuario.Activo &&
+            usuario.Rol.Nombre == "Administrador" &&
+            await _userDA.ContarAdministradoresActivosExcluyendoAsync(idUsuario) == 0)
+        {
+            throw new ApiException(400, "No se puede desactivar al ultimo administrador activo.");
+        }
+
+        usuario.Activo = activo;
+        await _userDA.ActualizarAsync(usuario);
+
+        return await ObtenerUsuarioAsync(idUsuario);
+    }
+
     public async Task<List<RoleResponse>> ObtenerRolesAsync()
     {
         var roles = await _userDA.ObtenerRolesAsync();
@@ -100,6 +267,22 @@ public class UserService
         return roles
             .Select(rol => new RoleResponse(rol.IdRol, rol.Nombre, rol.Descripcion))
             .ToList();
+    }
+
+    private static UserResponse Mapear(Usuario usuario, string? correo = null)
+    {
+        var correoPrincipal = correo ??
+            ContactosHelper.ObtenerCorreoPrincipal(usuario.Persona);
+
+        return new UserResponse(
+            usuario.IdUsuario,
+            usuario.Cedula,
+            ContactosHelper.NombreCompleto(usuario.Persona),
+            correoPrincipal,
+            usuario.IdRol,
+            usuario.Rol.Nombre,
+            usuario.Activo,
+            usuario.FechaCreacion);
     }
 
     private static void ValidarDatos(
@@ -133,7 +316,7 @@ public class UserService
 
         if (string.IsNullOrWhiteSpace(correo) ||
             correo.Length > 150 ||
-            !new EmailAddressAttribute().IsValid(correo))
+            !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(correo))
         {
             errores.Add("El correo electronico no es valido.");
         }
