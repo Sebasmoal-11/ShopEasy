@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const loginButton = document.getElementById("loginButton");
     const buttonText = document.getElementById("buttonText");
 
-    // Mostrar u ocultar contraseña
+    // Mostrar u ocultar contraseÃ±a
     togglePassword.addEventListener("click", () => {
 
         const mostrar = passwordInput.type === "password";
@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         togglePassword.setAttribute(
             "aria-label",
-            mostrar ? "Ocultar contraseña" : "Mostrar contraseña"
+            mostrar ? "Ocultar contraseÃ±a" : "Mostrar contraseÃ±a"
         );
 
         togglePassword.setAttribute(
@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 showMessage(
                     data.message ||
                     data.mensaje ||
-                    "No fue posible iniciar sesión. Verifica tus credenciales.",
+                    "No fue posible iniciar sesiÃ³n. Verifica tus credenciales.",
                     "danger"
                 );
 
@@ -104,14 +104,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!data.token || !data.user) {
 
                 showMessage(
-                    "El servidor respondió, pero no devolvió los datos de sesión esperados.",
+                    "El servidor respondiÃ³, pero no devolviÃ³ los datos de sesiÃ³n esperados.",
                     "danger"
                 );
 
                 return;
             }
 
-            // Guardar sesión
+            // Guardar sesiÃ³n
             sessionStorage.setItem("token", data.token);
 
             sessionStorage.setItem(
@@ -120,25 +120,30 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
             showMessage(
-                `¡Bienvenido, ${data.user.nombreCompleto}!`,
+                `Â¡Bienvenido, ${data.user.nombreCompleto}!`,
                 "success"
             );
 
-            // Más adelante conectaremos aquí el menú principal.
+            // MÃ¡s adelante conectaremos aquÃ­ el menÃº principal.
 
         } catch (error) {
 
-            console.error("Error de inicio de sesión:", error);
+            console.error("Error de inicio de sesiÃ³n:", error);
+
+            if (window.ShopEasyErrores &&
+                window.ShopEasyErrores.manejarErrorConexion(error)) {
+                return;
+            }
 
             showMessage(
-                "No se pudo conectar con el servidor. Inténtalo nuevamente.",
+                "No se pudo conectar con el servidor. IntÃ©ntalo nuevamente.",
                 "danger"
             );
 
         } finally {
 
             loginButton.disabled = false;
-            buttonText.textContent = "Iniciar sesión";
+            buttonText.textContent = "Iniciar sesiÃ³n";
 
         }
 
